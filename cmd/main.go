@@ -12,16 +12,34 @@ import (
 )
 
 var (
-	url     string
-	workers int
-	delay   int
+	url         string
+	workers     int
+	delay       int
+	versionFlag bool
 )
 
 func main() {
 	flag.StringVar(&url, "url", "", "TODO")
 	flag.IntVar(&workers, "w", 1, "")
 	flag.IntVar(&delay, "d", 1, "")
+	flag.BoolVar(&versionFlag, "v", false, "")
 	flag.Parse()
+
+	if versionFlag {
+		showVersion()
+	}
+
+	required := []string{"url"}
+	flag.Parse()
+
+	seen := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) { seen[f.Name] = true })
+	for _, req := range required {
+		if !seen[req] {
+			fmt.Fprintf(os.Stderr, "missing required -%s argument/flag\n", req)
+			os.Exit(2) // the same exit code flag.Parse uses
+		}
+	}
 
 	wordCh := make(chan string, 0)
 	s := make(chan string, 1)
@@ -59,9 +77,8 @@ func main() {
 
 func checkWord(wordCh <-chan string, s, f chan<- string) {
 	for w := range wordCh {
-		fmt.Println(w)
 		t := time.Millisecond
-		time.Sleep(t * 10)
+		time.Sleep(t * time.Duration(delay))
 
 		r, err := http.Get(fmt.Sprintf("%s/%s", url, w))
 		if err != nil || r.StatusCode == http.StatusNotFound {
